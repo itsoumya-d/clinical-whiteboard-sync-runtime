@@ -1,5 +1,6 @@
 import Foundation
 
+#if canImport(ObjectiveC)
 @objc(CWRObjCWhiteboardBridge)
 public final class ObjCWhiteboardBridge: NSObject {
     private let engine: PatientStateEngine
@@ -59,3 +60,40 @@ public final class ObjCWhiteboardBridge: NSObject {
         return engine.allActivePatients().map { $0.id }
     }
 }
+#else
+public final class ObjCWhiteboardBridge {
+    private let engine: PatientStateEngine
+
+    public init(engine: PatientStateEngine = PatientStateEngine()) {
+        self.engine = engine
+    }
+
+    public func registerPatient(id: String, name: String, species: String, isCritical: Bool) {
+        let level: CareLevel = isCritical ? .critical : .routine
+        let record = PatientRecord(id: id, patientName: name, species: species, careLevel: level)
+        engine.upsertPatient(record)
+    }
+
+    public func transitionPatient(patientId: String, toPhaseString: String) throws -> Bool {
+        guard let phase = PatientPhase(rawValue: toPhaseString.uppercased()) else {
+            throw ClinicalWorkflowError.invalidPhaseTransition(from: .admitted, to: .discharged)
+        }
+        _ = try engine.transitionPhase(patientId: patientId, targetPhase: phase)
+        return true
+    }
+
+    public func recordMedication(patientId: String, drug: String, dosage: String, nurse: String) -> Bool {
+        let dose = MedicationDose(drugName: drug, dosage: dosage, administeredBy: nurse)
+        do {
+            _ = try engine.recordMedication(patientId: patientId, dose: dose)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    public func activePatientIds() -> [String] {
+        return engine.allActivePatients().map { $0.id }
+    }
+}
+#endif

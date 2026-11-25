@@ -55,7 +55,6 @@ final class ClinicalWhiteboardRuntimeTests: XCTestCase {
         let patient = PatientRecord(id: "P-103", patientName: "Charlie", species: "Canine", phase: .admitted)
         engine.upsertPatient(patient)
 
-        // Admitted cannot jump directly to Discharged
         XCTAssertThrowsError(try engine.transitionPhase(patientId: "P-103", targetPhase: .discharged)) { error in
             guard case let ClinicalWorkflowError.invalidPhaseTransition(from, to) = error else {
                 XCTFail("Expected invalidPhaseTransition, got \(error)")
@@ -128,6 +127,7 @@ final class ClinicalWhiteboardRuntimeTests: XCTestCase {
 
         XCTAssertEqual(bridge.activePatientIds(), ["OB-1"])
 
+        #if canImport(ObjectiveC)
         var err: NSError?
         let ok = bridge.transitionPatient(patientId: "OB-1", toPhaseString: "TRIAGE", error: &err)
         XCTAssertTrue(ok)
@@ -139,5 +139,12 @@ final class ClinicalWhiteboardRuntimeTests: XCTestCase {
         let badOk = bridge.transitionPatient(patientId: "OB-1", toPhaseString: "DISCHARGED", error: &err)
         XCTAssertFalse(badOk)
         XCTAssertNotNil(err)
+        #else
+        let ok = (try? bridge.transitionPatient(patientId: "OB-1", toPhaseString: "TRIAGE")) ?? false
+        XCTAssertTrue(ok)
+
+        let medOk = bridge.recordMedication(patientId: "OB-1", drug: "Buprenorphine", dosage: "0.02mg/kg", nurse: "Vet Tech Alex")
+        XCTAssertTrue(medOk)
+        #endif
     }
 }
